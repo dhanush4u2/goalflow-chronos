@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Target, 
   Trophy, 
@@ -15,63 +17,82 @@ import {
   Clock
 } from "lucide-react";
 import { GoalCard, type Goal } from "./GoalCard";
-
-// Mock data - in real app this would come from state management/API
-const mockGoals: Goal[] = [
-  {
-    id: "1",
-    title: "Learn React Advanced Patterns",
-    description: "Master hooks, context, and performance optimization techniques",
-    category: "monthly",
-    status: "active",
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    points: 150,
-    skills: ["React", "JavaScript", "Frontend"],
-    progress: 65,
-    daysLeft: 12
-  },
-  {
-    id: "2", 
-    title: "Daily Code Practice",
-    description: "Solve at least 2 DSA problems daily",
-    category: "daily",
-    status: "active",
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    points: 300,
-    skills: ["DSA", "Problem Solving"],
-    progress: 80,
-    daysLeft: 0
-  },
-  {
-    id: "3",
-    title: "Build MVP for Startup Idea",
-    description: "Create a functional prototype for the new project",
-    category: "custom",
-    status: "completed",
-    startDate: "2023-12-01",
-    endDate: "2023-12-31",
-    points: 500,
-    skills: ["Entrepreneurship", "Product Development", "MVP"],
-    progress: 100
-  }
-];
-
-const mockStats = {
-  totalPoints: 1250,
-  activeGoals: 5,
-  completedGoals: 12,
-  currentStreak: 8,
-  skillsLearned: 15,
-  level: 3,
-  nextLevelPoints: 500
-};
+import { GoalForm } from "./GoalForm";
+import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
+  const { toast } = useToast();
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | undefined>();
+
+  // Calculate stats from actual goals
+  const stats = {
+    totalPoints: goals.reduce((sum, goal) => sum + (goal.status === "completed" ? goal.points : 0), 0),
+    activeGoals: goals.filter(g => g.status === "active").length,
+    completedGoals: goals.filter(g => g.status === "completed").length,
+    currentStreak: 3, // TODO: Calculate actual streak
+    skillsLearned: [...new Set(goals.flatMap(g => g.skills))].length,
+    level: Math.floor(goals.reduce((sum, goal) => sum + (goal.status === "completed" ? goal.points : 0), 0) / 500),
+    nextLevelPoints: 500 - (goals.reduce((sum, goal) => sum + (goal.status === "completed" ? goal.points : 0), 0) % 500)
+  };
+
   const handleStatusChange = (goalId: string, status: Goal["status"]) => {
-    console.log(`Goal ${goalId} status changed to ${status}`);
-    // In real app, this would update the goal status
+    setGoals(prev => prev.map(goal => 
+      goal.id === goalId 
+        ? { ...goal, status, progress: status === "completed" ? 100 : goal.progress }
+        : goal
+    ));
+    
+    toast({
+      title: `Goal ${status}!`,
+      description: `Your goal has been marked as ${status}.`,
+    });
+  };
+
+  const handleSaveGoal = (goalData: Omit<Goal, 'id'>) => {
+    if (editingGoal) {
+      setGoals(prev => prev.map(goal =>
+        goal.id === editingGoal.id
+          ? { ...goal, ...goalData }
+          : goal
+      ));
+      toast({
+        title: "Goal updated!",
+        description: "Your goal has been successfully updated.",
+      });
+    } else {
+      const newGoal: Goal = {
+        ...goalData,
+        id: Date.now().toString(),
+      };
+      setGoals(prev => [...prev, newGoal]);
+      toast({
+        title: "Goal created!",
+        description: "Your new goal has been added successfully.",
+      });
+    }
+    
+    setShowGoalForm(false);
+    setEditingGoal(undefined);
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setShowGoalForm(true);
+  };
+
+  const handleDeleteGoal = (goalId: string) => {
+    setGoals(prev => prev.filter(goal => goal.id !== goalId));
+    toast({
+      title: "Goal deleted",
+      description: "Your goal has been removed.",
+    });
+  };
+
+  const handleNewGoal = () => {
+    setEditingGoal(undefined);
+    setShowGoalForm(true);
   };
 
   return (
@@ -86,7 +107,7 @@ export function Dashboard() {
             Track your progress, build skills, and achieve your dreams
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:shadow-glow">
+        <Button onClick={handleNewGoal} className="bg-gradient-primary hover:shadow-glow">
           <Plus className="h-4 w-4 mr-2" />
           New Goal
         </Button>
@@ -100,9 +121,9 @@ export function Dashboard() {
             <Trophy className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockStats.totalPoints}</div>
+            <div className="text-2xl font-bold">{stats.totalPoints}</div>
             <p className="text-xs text-white/80">
-              Level {mockStats.level} • {mockStats.nextLevelPoints} to next
+              Level {stats.level} • {stats.nextLevelPoints} to next
             </p>
           </CardContent>
         </Card>
@@ -113,9 +134,9 @@ export function Dashboard() {
             <Target className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockStats.activeGoals}</div>
+            <div className="text-2xl font-bold">{stats.activeGoals}</div>
             <p className="text-xs text-muted-foreground">
-              {mockStats.completedGoals} completed this month
+              {stats.completedGoals} completed total
             </p>
           </CardContent>
         </Card>
@@ -126,7 +147,7 @@ export function Dashboard() {
             <Flame className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{mockStats.currentStreak}</div>
+            <div className="text-2xl font-bold text-warning">{stats.currentStreak}</div>
             <p className="text-xs text-muted-foreground">
               days in a row
             </p>
@@ -139,7 +160,7 @@ export function Dashboard() {
             <BookOpen className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{mockStats.skillsLearned}</div>
+            <div className="text-2xl font-bold text-success">{stats.skillsLearned}</div>
             <p className="text-xs text-muted-foreground">
               across all categories
             </p>
@@ -155,21 +176,21 @@ export function Dashboard() {
             Level Progress
           </CardTitle>
           <CardDescription>
-            Level {mockStats.level} • {mockStats.nextLevelPoints} points until Level {mockStats.level + 1}
+            Level {stats.level} • {stats.nextLevelPoints} points until Level {stats.level + 1}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Progress value={75} className="h-3" />
+          <Progress value={(500 - stats.nextLevelPoints) / 500 * 100} className="h-3" />
           <div className="flex justify-between text-sm text-muted-foreground mt-2">
-            <span>{mockStats.totalPoints} points</span>
-            <span>{mockStats.totalPoints + mockStats.nextLevelPoints} points</span>
+            <span>{stats.totalPoints} points</span>
+            <span>{stats.totalPoints + stats.nextLevelPoints} points</span>
           </div>
         </CardContent>
       </Card>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="group hover:shadow-lg transition-all cursor-pointer">
+        <Card className="group hover:shadow-lg transition-all cursor-pointer" onClick={handleNewGoal}>
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center mb-2">
               <Target className="h-6 w-6 text-white" />
@@ -200,22 +221,44 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Goals */}
+      {/* Goals */}
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold">Recent Goals</h2>
-          <Button variant="outline">View All</Button>
+          <h2 className="text-2xl font-semibold">
+            {goals.length === 0 ? "Your Goals" : "Your Goals"}
+          </h2>
+          <Button variant="outline" onClick={handleNewGoal}>
+            Add Goal
+          </Button>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {mockGoals.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onStatusChange={handleStatusChange}
-            />
-          ))}
-        </div>
+        {goals.length === 0 ? (
+          <Card className="text-center py-12">
+            <CardContent>
+              <Target className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <CardTitle className="mb-2">No goals yet</CardTitle>
+              <CardDescription className="mb-4">
+                Start your journey by creating your first goal!
+              </CardDescription>
+              <Button onClick={handleNewGoal} className="bg-gradient-primary hover:shadow-glow">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Goal
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {goals.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                onStatusChange={handleStatusChange}
+                onEdit={handleEditGoal}
+                onDelete={handleDeleteGoal}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Today's Habits */}
@@ -246,6 +289,20 @@ export function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Goal Form Dialog */}
+      <Dialog open={showGoalForm} onOpenChange={setShowGoalForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingGoal ? "Edit Goal" : "Create New Goal"}</DialogTitle>
+          </DialogHeader>
+          <GoalForm
+            goal={editingGoal}
+            onSave={handleSaveGoal}
+            onCancel={() => setShowGoalForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

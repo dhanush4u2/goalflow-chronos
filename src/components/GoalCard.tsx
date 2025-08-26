@@ -2,7 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Target, Trophy, Flame, CheckCircle2, XCircle, PlayCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Calendar, Clock, Target, Trophy, Flame, CheckCircle2, XCircle, PlayCircle, MoreHorizontal, Edit, Trash2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface Goal {
@@ -22,10 +23,12 @@ export interface Goal {
 interface GoalCardProps {
   goal: Goal;
   onStatusChange?: (goalId: string, status: Goal["status"]) => void;
+  onEdit?: (goal: Goal) => void;
+  onDelete?: (goalId: string) => void;
   className?: string;
 }
 
-export function GoalCard({ goal, onStatusChange, className }: GoalCardProps) {
+export function GoalCard({ goal, onStatusChange, onEdit, onDelete, className }: GoalCardProps) {
   const getStatusIcon = () => {
     switch (goal.status) {
       case "completed":
@@ -60,7 +63,39 @@ export function GoalCard({ goal, onStatusChange, className }: GoalCardProps) {
             {getStatusIcon()}
             <CardTitle className="text-lg">{goal.title}</CardTitle>
           </div>
-          {getStatusBadge()}
+          <div className="flex items-center gap-2">
+            {getStatusBadge()}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(goal)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Goal
+                  </DropdownMenuItem>
+                )}
+                {goal.status !== "active" && onStatusChange && (
+                  <DropdownMenuItem onClick={() => onStatusChange(goal.id, "active")}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Restart Goal
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem 
+                    onClick={() => onDelete(goal.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Goal
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <CardDescription className="text-muted-foreground">
           {goal.description}
