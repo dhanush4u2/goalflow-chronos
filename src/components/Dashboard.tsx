@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { 
   Target, 
   Trophy, 
@@ -14,17 +15,24 @@ import {
   Zap,
   Plus,
   Award,
-  Clock
+  Clock,
+  MoreVertical,
+  Check,
+  X
 } from "lucide-react";
 import { GoalCard, type Goal } from "./GoalCard";
 import { GoalForm } from "./GoalForm";
+import { HabitForm, type Habit } from "./HabitForm";
 import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { toast } = useToast();
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
+  const [showHabitForm, setShowHabitForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>();
+  const [editingHabit, setEditingHabit] = useState<Habit | undefined>();
 
   // Calculate stats from actual goals
   const stats = {
@@ -93,6 +101,83 @@ export function Dashboard() {
   const handleNewGoal = () => {
     setEditingGoal(undefined);
     setShowGoalForm(true);
+  };
+
+  // Habit management functions
+  const handleToggleHabit = (habitId: string) => {
+    setHabits(prev => prev.map(habit => {
+      if (habit.id === habitId) {
+        const newCompleted = !habit.completed;
+        const newStreak = newCompleted ? habit.streak + 1 : Math.max(0, habit.streak - 1);
+        return { ...habit, completed: newCompleted, streak: newStreak };
+      }
+      return habit;
+    }));
+    
+    toast({
+      title: "Habit updated!",
+      description: "Great job staying consistent!",
+    });
+  };
+
+  const handleDeleteHabit = (habitId: string) => {
+    setHabits(prev => prev.filter(habit => habit.id !== habitId));
+    toast({
+      title: "Habit deleted",
+      description: "Your habit has been removed.",
+    });
+  };
+
+  const handleNewHabit = () => {
+    setEditingHabit(undefined);
+    setShowHabitForm(true);
+  };
+
+  const handleEditHabit = (habit: Habit) => {
+    setEditingHabit(habit);
+    setShowHabitForm(true);
+  };
+
+  const handleSaveHabit = (habitData: Omit<Habit, 'id'>) => {
+    if (editingHabit) {
+      // Update existing habit
+      setHabits(prev => prev.map(habit => 
+        habit.id === editingHabit.id 
+          ? { ...habitData, id: editingHabit.id }
+          : habit
+      ));
+      toast({
+        title: "Habit updated!",
+        description: "Your habit has been successfully updated.",
+      });
+    } else {
+      // Create new habit
+      const newHabit: Habit = {
+        ...habitData,
+        id: crypto.randomUUID(),
+      };
+      setHabits(prev => [...prev, newHabit]);
+      toast({
+        title: "Habit created!",
+        description: "Your new habit has been added successfully.",
+      });
+    }
+    
+    setShowHabitForm(false);
+    setEditingHabit(undefined);
+  };
+
+  const handleRenewHabit = (habitId: string) => {
+    setHabits(prev => prev.map(habit => 
+      habit.id === habitId 
+        ? { ...habit, completed: false, streak: 0 }
+        : habit
+    ));
+    
+    toast({
+      title: "Habit renewed!",
+      description: "Your habit has been reset for a fresh start.",
+    });
   };
 
   return (
@@ -262,33 +347,89 @@ export function Dashboard() {
       </div>
 
       {/* Today's Habits */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold flex items-center gap-2">
+            <Clock className="h-6 w-6 text-primary" />
             Today's Habits
-          </CardTitle>
-          <CardDescription>
-            Keep your daily streak going!
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <span>Drink 8 glasses of water</span>
-              <Badge variant="success">6/8</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <span>30 minutes exercise</span>
-              <Badge variant="outline">Pending</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <span>Read for 20 minutes</span>
-              <Badge variant="success">Done</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </h2>
+          <Button variant="outline" onClick={handleNewHabit}>
+            Add Habit
+          </Button>
+        </div>
+        
+        {habits.length === 0 ? (
+          <Card className="text-center py-12">
+            <CardContent>
+              <Clock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <CardTitle className="mb-2">No habits yet</CardTitle>
+              <CardDescription className="mb-4">
+                Build positive daily habits to achieve your goals!
+              </CardDescription>
+              <Button onClick={handleNewHabit} className="bg-gradient-primary hover:shadow-glow">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Habit
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardDescription>
+                Keep your daily streak going!
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {habits.map((habit) => (
+                  <div key={habit.id} className="flex items-center justify-between p-4 bg-muted rounded-lg group">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{habit.icon}</span>
+                      <div>
+                        <p className="font-medium">{habit.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {habit.streak} day streak
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={habit.completed ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleToggleHabit(habit.id)}
+                        className={habit.completed ? "bg-gradient-success" : ""}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditHabit(habit)}>
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRenewHabit(habit.id)}>
+                            Renew/Reset
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteHabit(habit.id)}
+                            className="text-destructive"
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Goal Form Dialog */}
       <Dialog open={showGoalForm} onOpenChange={setShowGoalForm}>
@@ -300,6 +441,20 @@ export function Dashboard() {
             goal={editingGoal}
             onSave={handleSaveGoal}
             onCancel={() => setShowGoalForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Habit Form Dialog */}
+      <Dialog open={showHabitForm} onOpenChange={setShowHabitForm}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingHabit ? "Edit Habit" : "Create New Habit"}</DialogTitle>
+          </DialogHeader>
+          <HabitForm
+            habit={editingHabit}
+            onSave={handleSaveHabit}
+            onCancel={() => setShowHabitForm(false)}
           />
         </DialogContent>
       </Dialog>
