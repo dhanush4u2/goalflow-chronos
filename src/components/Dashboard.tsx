@@ -23,6 +23,7 @@ import {
 import { GoalCard, type Goal } from "./GoalCard";
 import { GoalForm } from "./GoalForm";
 import { HabitForm, type Habit } from "./HabitForm";
+import { SkillWishlist, type Skill } from "./SkillWishlist";
 import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
@@ -177,6 +178,36 @@ export function Dashboard() {
     toast({
       title: "Habit renewed!",
       description: "Your habit has been reset for a fresh start.",
+    });
+  };
+
+  // Skill conversion function
+  const handleConvertSkillToGoal = (skill: Skill, goalData: { description: string; duration: "weekly" | "monthly" }) => {
+    const endDate = new Date();
+    if (goalData.duration === "weekly") {
+      endDate.setDate(endDate.getDate() + 7);
+    } else {
+      endDate.setMonth(endDate.getMonth() + 1);
+    }
+
+    const newGoal: Goal = {
+      id: crypto.randomUUID(),
+      title: skill.name,
+      description: goalData.description,
+      category: goalData.duration === "weekly" ? "weekly" : "monthly",
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+      status: "active",
+      progress: 0,
+      points: goalData.duration === "weekly" ? 50 : 200,
+      skills: [skill.name]
+    };
+
+    setGoals(prev => [...prev, newGoal]);
+    
+    toast({
+      title: "Goal created from skill!",
+      description: `${skill.name} has been converted to a ${goalData.duration} goal.`,
     });
   };
 
@@ -345,6 +376,9 @@ export function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Skill Wishlist */}
+      <SkillWishlist onConvertToGoal={handleConvertSkillToGoal} />
 
       {/* Today's Habits */}
       <div>
